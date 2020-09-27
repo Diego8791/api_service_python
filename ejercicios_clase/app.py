@@ -42,11 +42,12 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.image as mpimg
 
-import persona
+import persona 
 from config import config
 
 
 app = Flask(__name__)
+
 
 # Obtener la path de ejecución actual del script
 script_path = os.path.dirname(os.path.realpath(__file__))
@@ -68,8 +69,9 @@ def index():
         result += "<h3>[GET] /reset --> borrar y crear la base de datos</h3>"
         result += "<h3>[GET] /personas?limit=[]&offset=[] --> mostrar el listado de personas (limite and offset are optional)</h3>"
         result += "<h3>[POST] /registro --> ingresar nuevo registro de pulsaciones por JSON</h3>"
-        result += "<h3>[GET] /comparativa --> mostrar un gráfico que compare cuantas personas hay de cada nacionalidad"
-        
+        result += "<h3>[GET] /comparativa --> mostrar una lista de las personas registradas en el sistema"
+        result += "<h3>[GET] /comparativa/grafico --> mostrar un gráfico que compare cuantas personas hay de cada nacionalidad"
+
         return(result)
     except:
         return jsonify({'trace': traceback.format_exc()})
@@ -98,32 +100,89 @@ def personas():
 
 @app.route("/comparativa")
 def comparativa():
+        
     try:
         # Mostrar todos los registros en formato tabla
-        result = '''<h3>Implementar una función en persona.py
-                    nationality_review</h3>'''
+        result = '''<h3>Listado de personas registradas en la base personas</h3>'''
         result += '''<h3>Esa funcion debe devolver los datos que necesite
-                    para implementar el grafico a mostrar</h3>'''
+                     para implementar el grafico a mostrar</h3>'''
+
+        # Tabla HTML, header y formato
+        result += '<table border="1">'
+        result += '<thead cellpadding="1.0" cellspacing="1.0">'
+        result += '<tr>'
+        result += '<th>Nombre</th>'
+        result += '<th>Edad</th>'
+        result += '<th>Nacionalidad</th>'
+        result += '</tr>'
+               
+        data = persona.report()
+        
+        for row in data:
+        
+            # Fila de una tabla HTML
+            result += '<tr>'
+            result += '<td>' + str(row[0]) + '</td>'
+            result += '<td>' + str(row[1]) + '</td>'
+            result += '<td>' + str(row[2]) + '</td>'
+            result += '</tr>'
+
+        # Fin de la tabla HTML
+        result += '</thead cellpadding="0" cellspacing="0" >'
+        result += '</table>'
+
         return (result)
+
+    except:
+        return jsonify({'trace': traceback.format_exc()})
+
+
+@app.route("/comparativa/grafico")
+def grafico():
+    
+    data = persona.report()
+    nac_nombre, nac_cant = persona.graphics_factory(data)
+
+    try:  
+        # confección de gráfico
+        fig = plt.figure()
+        fig.suptitle('Nacionalidades', fontsize=16)
+        ax = fig.add_subplot()
+        ax.bar(nac_nombre, nac_cant, label='Nacionalidad')
+        ax.legend()
+        plt.show()
+        
+        # convertir gráfico en imagen
+        output = io.BytesIO()
+        FigureCanvas(fig).print_png(output)
+        return Response(output.getvalue(), mimetype='image/png')
     except:
         return jsonify({'trace': traceback.format_exc()})
 
 
 @app.route("/registro", methods=['POST'])
 def registro():
+    
     if request.method == 'POST':
         # Obtener del HTTP POST JSON el nombre y los pulsos
         # name = ...
         # age = ...
         # nationality = ...
-        
+       
         # persona.insert(name, int(age), nationality)
+        
+        name = str(request.json['name'])
+        age = str(request.json['age'])
+        nationality = str(request.json['nationality'])
+
+        persona.insert(name, int(age), nationality)
+
         return Response(status=200)
-    
+
 
 if __name__ == '__main__':
     print('Servidor arriba!')
-
+    
     app.run(host=server['host'],
             port=server['port'],
             debug=True)
